@@ -1,0 +1,110 @@
+service: crud-users
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  timeout: 60
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: "dynamodb:*"
+          Resource: arn:aws:dynamodb:us-east-1:220664579318:table/usuario
+
+plugins:
+  - serverless-offline
+  - serverless-dynamodb
+  - serverless-plugin-common-excludes
+  - serverless-plugin-include-dependencies
+
+custom:
+  dynamodb:
+  # If you only want to use DynamoDB Local in some stages, declare them here
+    stages:
+      - dev
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
+
+resources:
+  Resources:
+    usersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: usuario
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+
+functions:
+  get-user-by-id:
+    handler: getUsers/handler.getUsersById
+    events:
+      - http:
+          path: users
+          method: GET
+  get-users:
+    handler: getUsers/handler.getUsers
+    events:
+      - http:
+          path: users/{id}
+          method: GET
+  create-users:
+    handler: createUsers/handler.createUsers
+    events:
+      - http:
+          path: users
+          method: POST
+  get-translate-spanish:
+    handler: utils/handler.getTranslateToSpanishAPI
+    events:
+      - http:
+          path: translate/{word}
+          method: GET
+  get-swapi:
+    handler: swapi/handler.getSwapiRecordsToSpanish
+    layers:
+      - { Ref: BaseLambdaLayer }
+    events:
+      - http:
+          path: swapi/{resource}
+          method: GET
+      - http:
+          path: swapi/
+          method: GET
+  get-swapi-id:
+    handler: swapi/handler.getSwapiRecordsToSpanishById
+    layers:
+      - { Ref: BaseLambdaLayer }
+    events:
+      - http:
+          path: swapi/{resource}/{id}
+          method: GET
+          request:
+            parameters:
+              paths:
+                id: false
+package: 
+  individually: true
+  patterns:
+    - "!.dynamodb"
+    - "!node_modules"
+    - "!layers"
+layers:
+  base:
+    name: prd-dependencies
+    description: layer for nodejs prd dependencies
+    licenseInfo: MIT
+    compatibleRuntimes:
+      - nodejs18.x
+    compatibleArchitectures:
+      - x86_64
+    package:
+      artifact: layers/nodejs-layer.zip    
